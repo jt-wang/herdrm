@@ -75,7 +75,7 @@ struct SidebarView: View {
             // LazyVStack + Section pins each group header under the top action
             // rows while that section is in view; the next header pushes it out.
             ScrollView {
-                LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(spacing: 1, pinnedViews: SidebarStickyLayout.pinnedViews) {
                     Section {
                         if spacesExpanded {
                             allSpacesRow
@@ -93,7 +93,7 @@ struct SidebarView: View {
                         // tap target, so the chevron promised a disclosure that
                         // never fired. Trailing New Space stays a sibling Button
                         // so it does not toggle the section.
-                        stickyGroupHeader("Spaces", expanded: $spacesExpanded) {
+                        stickyGroupHeader(.spaces, expanded: $spacesExpanded) {
                             Button {
                                 model.showNewSpace = true
                             } label: {
@@ -111,7 +111,7 @@ struct SidebarView: View {
 
                     // Scrolls away so the next sticky header sits flush under
                     // the action rows once it takes over.
-                    Color.clear.frame(height: 10)
+                    Color.clear.frame(height: SidebarStickyLayout.interSectionGap)
 
                     Section {
                         if agentsExpanded {
@@ -132,11 +132,11 @@ struct SidebarView: View {
                             }
                         }
                     } header: {
-                        stickyGroupHeader("Agents", expanded: $agentsExpanded)
+                        stickyGroupHeader(.agents, expanded: $agentsExpanded)
                     }
 
                     if !model.visibleTerminals.isEmpty || !model.shellSessions.isEmpty {
-                        Color.clear.frame(height: 10)
+                        Color.clear.frame(height: SidebarStickyLayout.interSectionGap)
                         Section {
                             if terminalsExpanded {
                                 ForEach(model.visibleTerminals) { entry in
@@ -157,7 +157,7 @@ struct SidebarView: View {
                                 }
                             }
                         } header: {
-                            stickyGroupHeader("Terminals", expanded: $terminalsExpanded)
+                            stickyGroupHeader(.terminals, expanded: $terminalsExpanded)
                         }
                     }
                 }
@@ -204,18 +204,19 @@ struct SidebarView: View {
         .focusEffectDisabled()
     }
 
-    private func stickyGroupHeader(_ title: LocalizedStringKey, expanded: Binding<Bool>) -> some View {
-        stickyGroupHeader(title, expanded: expanded) { EmptyView() }
+    private func stickyGroupHeader(_ section: SidebarSectionID, expanded: Binding<Bool>) -> some View {
+        stickyGroupHeader(section, expanded: expanded) { EmptyView() }
     }
 
     private func stickyGroupHeader<Trailing: View>(
-        _ title: LocalizedStringKey,
+        _ section: SidebarSectionID,
         expanded: Binding<Bool>,
         @ViewBuilder trailing: () -> Trailing
     ) -> some View {
-        groupHeader(title, expanded: expanded, trailing: trailing)
+        groupHeader(section.title, expanded: expanded, trailing: trailing)
             // Match the sidebar material so rows don't bleed through while pinned.
             .background(VisualEffectView(material: .sidebar))
+            .sidebarTestIdentifier(section.accessibilityIdentifier)
     }
 
     private func groupHeader(_ title: LocalizedStringKey, expanded: Binding<Bool>) -> some View {
@@ -253,7 +254,7 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity)
-        .frame(height: 28)
+        .frame(height: SidebarStickyLayout.headerHeight)
     }
 
     private var allSpacesRow: some View {

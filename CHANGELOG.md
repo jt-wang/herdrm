@@ -11,6 +11,8 @@ the Sparkle update description — a release without a section here fails CI.
 - Sidebar Spaces / Agents / Terminals section headers stick under the top
   actions while you scroll that list; the next section’s header replaces the
   previous.
+- `make uiux-test` covers sidebar sticky headers (unit, contract, integration,
+  visual band probe, and e2e accessibility surface) via HerdrMTests.
 
 ## [0.6.5] - 2026-09-13
 
