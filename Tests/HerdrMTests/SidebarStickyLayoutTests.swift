@@ -81,9 +81,49 @@ final class SidebarStickyLayoutUnitTests: XCTestCase {
 }
 
 final class SidebarStickyContractTests: XCTestCase {
-    func testPinnedViewsContractIsSectionHeaders() {
+    func testContinuousPushStickyContract() {
         XCTAssertTrue(SidebarStickyLayout.pinsSectionHeaders)
-        XCTAssertEqual(SidebarStickyLayout.pinnedViews, [.sectionHeaders])
+        XCTAssertTrue(SidebarStickyLayout.usesContinuousPushSticky)
+        XCTAssertFalse(SidebarStickyLayout.usesSectionBoundarySticky)
+    }
+
+    func testPinnedMinYFollowsContentBeforeReachingTop() {
+        XCTAssertEqual(
+            SidebarStickyScroll.pinnedMinY(naturalMinY: 120, nextNaturalMinY: 400),
+            120,
+            accuracy: 0.001
+        )
+    }
+
+    func testPinnedMinYStaysAtTopUntilNextHeaderPushes() {
+        XCTAssertEqual(
+            SidebarStickyScroll.pinnedMinY(naturalMinY: -80, nextNaturalMinY: 200),
+            0,
+            accuracy: 0.001
+        )
+        // Next header 20pt below clip top → current is pushed 8pt up (28 − 20).
+        XCTAssertEqual(
+            SidebarStickyScroll.pinnedMinY(naturalMinY: -100, nextNaturalMinY: 20),
+            -8,
+            accuracy: 0.001
+        )
+    }
+
+    func testPinnedMinYPushIsContinuous() {
+        var previous = SidebarStickyScroll.pinnedMinY(naturalMinY: -1_000, nextNaturalMinY: 28)
+        for next in stride(from: 27, through: 0, by: -1) {
+            let pinned = SidebarStickyScroll.pinnedMinY(
+                naturalMinY: -1_000,
+                nextNaturalMinY: CGFloat(next)
+            )
+            XCTAssertEqual(
+                abs(pinned - previous),
+                1,
+                accuracy: 0.001,
+                "push should move 1pt when the next header moves 1pt"
+            )
+            previous = pinned
+        }
     }
 
     func testAccessibilityIdentifiersAreStable() {

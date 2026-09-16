@@ -31,6 +31,7 @@ struct SidebarView: View {
     @State private var spacesExpanded = true
     @State private var agentsExpanded = true
     @State private var terminalsExpanded = true
+    @State private var stickyHeaderFrames: [SidebarSectionID: CGRect] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,97 +73,15 @@ struct SidebarView: View {
 
             Spacer().frame(height: 10)
 
-            // LazyVStack + Section pins each group header under the top action
-            // rows while that section is in view; the next header pushes it out.
+            // Flow-sticky headers: each header stays in the scroll content and
+            // is offset so the next section pushes it out continuously (no
+            // LazyVStack pinnedViews handoff hitch).
             ScrollView {
-                LazyVStack(spacing: 1, pinnedViews: SidebarStickyLayout.pinnedViews) {
-                    Section {
-                        if spacesExpanded {
-                            allSpacesRow
-                            ForEach(model.visibleSpaces) { entry in
-                                SpaceRowView(
-                                    entry: entry,
-                                    model: model,
-                                    draggingSpaceID: $draggingSpaceID,
-                                    spaceDrop: $spaceDrop
-                                )
-                            }
-                        }
-                    } header: {
-                        // Title + chevron used to be a decorative HStack with no
-                        // tap target, so the chevron promised a disclosure that
-                        // never fired. Trailing New Space stays a sibling Button
-                        // so it does not toggle the section.
-                        stickyGroupHeader(.spaces, expanded: $spacesExpanded) {
-                            Button {
-                                model.showNewSpace = true
-                            } label: {
-                                Image(systemName: "folder.badge.plus")
-                                    .font(.system(size: 11.5))
-                                    .foregroundStyle(Theme.textGhost)
-                                    .frame(width: 20, height: 20)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .help("New Space")
-                            .focusEffectDisabled()
-                        }
-                    }
-
-                    // Scrolls away so the next sticky header sits flush under
-                    // the action rows once it takes over.
-                    Color.clear.frame(height: SidebarStickyLayout.interSectionGap)
-
-                    Section {
-                        if agentsExpanded {
-                            if model.visibleAgents.isEmpty {
-                                Text(emptyAgentsHint)
-                                    .font(.system(size: 11.5))
-                                    .foregroundStyle(Theme.textGhost)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(8)
-                            }
-                            ForEach(model.visibleAgents) { entry in
-                                AgentRowView(
-                                    entry: entry,
-                                    model: model,
-                                    draggingAgentID: $draggingAgentID,
-                                    agentDrop: $agentDrop
-                                )
-                            }
-                        }
-                    } header: {
-                        stickyGroupHeader(.agents, expanded: $agentsExpanded)
-                    }
-
-                    if !model.visibleTerminals.isEmpty || !model.shellSessions.isEmpty {
-                        Color.clear.frame(height: SidebarStickyLayout.interSectionGap)
-                        Section {
-                            if terminalsExpanded {
-                                ForEach(model.visibleTerminals) { entry in
-                                    TerminalRowView(
-                                        entry: entry,
-                                        model: model,
-                                        draggingTerminalID: $draggingTerminalID,
-                                        terminalDrop: $terminalDrop
-                                    )
-                                }
-                                ForEach(model.shellSessions) { session in
-                                    shellRow(session)
-                                        .contextMenu {
-                                            Button("Close Terminal", role: .destructive) {
-                                                model.closeShellSession(session.id)
-                                            }
-                                        }
-                                }
-                            }
-                        } header: {
-                            stickyGroupHeader(.terminals, expanded: $terminalsExpanded)
-                        }
-                    }
-                }
-                .padding(.horizontal, 10)
+                stickyScrollContent
+                    .padding(.horizontal, 10)
             }
+            .coordinateSpace(name: SidebarStickyScroll.coordinateSpaceName)
+            .onPreferenceChange(SidebarStickyHeaderFramesKey.self) { stickyHeaderFrames = $0 }
 
             Spacer(minLength: 0)
             footer
@@ -177,6 +96,111 @@ struct SidebarView: View {
         case .failed(let reason): return reason
         default: return String(localized: "No agents")
         }
+    }
+
+    private var terminalsSectionVisible: Bool {
+        !model.visibleTerminals.isEmpty || !model.shellSessions.isEmpty
+    }
+
+    private var stickyScrollContent: some View {
+        VStack(spacing: 1) {
+            flowStickyHeader(.spaces, next: .agents) {
+                // Title + chevron used to be a decorative HStack with no
+                // tap target, so the chevron promised a disclosure that
+                // never fired. Trailing New Space stays a sibling Button
+                // so it does not toggle the section.
+                stickyGroupHeader(.spaces, expanded: $spacesExpanded) {
+                    Button {
+                        model.showNewSpace = true
+                    } label: {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.textGhost)
+                            .frame(width: 20, height: 20)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("New Space")
+                    .focusEffectDisabled()
+                }
+            }
+            if spacesExpanded {
+                allSpacesRow
+                ForEach(model.visibleSpaces) { entry in
+                    SpaceRowView(
+                        entry: entry,
+                        model: model,
+                        draggingSpaceID: $draggingSpaceID,
+                        spaceDrop: $spaceDrop
+                    )
+                }
+            }
+            // Gap lives in the section body so the next header can push
+            // continuously without a between-section hitch.
+            Color.clear.frame(height: SidebarStickyLayout.interSectionGap)
+
+            flowStickyHeader(.agents, next: terminalsSectionVisible ? .terminals : nil) {
+                stickyGroupHeader(.agents, expanded: $agentsExpanded)
+            }
+            if agentsExpanded {
+                if model.visibleAgents.isEmpty {
+                    Text(emptyAgentsHint)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textGhost)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                }
+                ForEach(model.visibleAgents) { entry in
+                    AgentRowView(
+                        entry: entry,
+                        model: model,
+                        draggingAgentID: $draggingAgentID,
+                        agentDrop: $agentDrop
+                    )
+                }
+            }
+
+            if terminalsSectionVisible {
+                Color.clear.frame(height: SidebarStickyLayout.interSectionGap)
+                flowStickyHeader(.terminals, next: nil) {
+                    stickyGroupHeader(.terminals, expanded: $terminalsExpanded)
+                }
+                if terminalsExpanded {
+                    ForEach(model.visibleTerminals) { entry in
+                        TerminalRowView(
+                            entry: entry,
+                            model: model,
+                            draggingTerminalID: $draggingTerminalID,
+                            terminalDrop: $terminalDrop
+                        )
+                    }
+                    ForEach(model.shellSessions) { session in
+                        shellRow(session)
+                            .contextMenu {
+                                Button("Close Terminal", role: .destructive) {
+                                    model.closeShellSession(session.id)
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Keeps the header in document order for hit-testing, then offsets it into
+    /// the sticky pin slot (next header pushes the current one out smoothly).
+    private func flowStickyHeader<Header: View>(
+        _ id: SidebarSectionID,
+        next: SidebarSectionID?,
+        @ViewBuilder header: () -> Header
+    ) -> some View {
+        let natural = stickyHeaderFrames[id]?.minY ?? 0
+        let nextY = next.flatMap { stickyHeaderFrames[$0]?.minY }
+        let pinned = SidebarStickyScroll.pinnedMinY(naturalMinY: natural, nextNaturalMinY: nextY)
+        return header()
+            .reportStickyHeaderFrame(id)
+            .offset(y: pinned - natural)
+            .zIndex(10)
     }
 
     // MARK: - Rows

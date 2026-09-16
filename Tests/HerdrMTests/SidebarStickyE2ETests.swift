@@ -3,8 +3,6 @@ import SwiftUI
 import XCTest
 @testable import herdrm
 
-/// End-to-end: scroll the AppKit clip view and assert the active section’s
-/// global frame stays in the pin slot.
 final class SidebarStickyE2ETests: XCTestCase {
     @MainActor
     func testProbeExposesSectionHeadersAndScrollSurface() throws {
@@ -30,22 +28,27 @@ final class SidebarStickyE2ETests: XCTestCase {
         pump()
         defer { window.close() }
 
-        let spacesY = try XCTUnwrap(frames.frames[SidebarSectionID.spaces.accessibilityIdentifier]?.minY)
+        XCTAssertEqual(frames.pinnedMinY(for: .spaces, next: .agents), 0, accuracy: 2)
 
         guard let scroll = findScroll(in: root) else {
             return XCTFail("missing scroll view")
         }
 
-        scroll.contentView.scroll(to: NSPoint(x: 0, y: 1_200))
+        let spacesBody = CGFloat(30) * 32
+        let pastSpaces =
+            SidebarStickyLayout.headerHeight
+            + spacesBody
+            + SidebarStickyLayout.interSectionGap
+            + 40
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: pastSpaces))
         scroll.reflectScrolledClipView(scroll.contentView)
         pump()
 
-        let agentsY = try XCTUnwrap(frames.frames[SidebarSectionID.agents.accessibilityIdentifier]?.minY)
         XCTAssertEqual(
-            agentsY,
-            spacesY,
-            accuracy: 4.0,
-            "after takeover, Agents should sit in the same global pin slot"
+            frames.pinnedMinY(for: .agents, next: .terminals),
+            0,
+            accuracy: 2,
+            "after takeover, Agents should own the pin slot"
         )
     }
 }

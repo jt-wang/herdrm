@@ -3,8 +3,6 @@ import SwiftUI
 import XCTest
 @testable import herdrm
 
-/// Hosts `SidebarStickyProbeStack` and asserts pinned header global frames
-/// stay stable (and hand off) while the AppKit clip view scrolls.
 final class SidebarStickyIntegrationTests: XCTestCase {
     @MainActor
     func testSpacesHeaderStaysPinnedWhileScrollingItsBody() throws {
@@ -14,18 +12,16 @@ final class SidebarStickyIntegrationTests: XCTestCase {
         defer { window.close() }
 
         let scrollView = try host.scrollView(in: window)
-        let id = SidebarSectionID.spaces.accessibilityIdentifier
-        let topBefore = try XCTUnwrap(frames.frames[id]?.minY)
+        XCTAssertEqual(frames.pinnedMinY(for: .spaces, next: .agents), 0, accuracy: 2)
 
         scrollView.contentView.scroll(to: NSPoint(x: 0, y: 180))
         scrollView.reflectScrolledClipView(scrollView.contentView)
         host.pump()
 
-        let topAfter = try XCTUnwrap(frames.frames[id]?.minY)
         XCTAssertEqual(
-            topAfter,
-            topBefore,
-            accuracy: 3.0,
+            frames.pinnedMinY(for: .spaces, next: .agents),
+            0,
+            accuracy: 2,
             "spaces header must stay pinned while its body scrolls"
         )
     }
@@ -38,8 +34,6 @@ final class SidebarStickyIntegrationTests: XCTestCase {
         defer { window.close() }
 
         let scrollView = try host.scrollView(in: window)
-        let spacesBefore = try XCTUnwrap(frames.frames[SidebarSectionID.spaces.accessibilityIdentifier]?.minY)
-
         let spacesBody = CGFloat(host.rowCountPerSection) * 32
         let pastSpaces =
             SidebarStickyLayout.headerHeight
@@ -50,16 +44,52 @@ final class SidebarStickyIntegrationTests: XCTestCase {
         scrollView.reflectScrolledClipView(scrollView.contentView)
         host.pump()
 
-        let agentsY = try XCTUnwrap(frames.frames[SidebarSectionID.agents.accessibilityIdentifier]?.minY)
         XCTAssertEqual(
-            agentsY,
-            spacesBefore,
-            accuracy: 4.0,
-            "agents header should occupy the same pin slot Spaces held at rest"
+            frames.pinnedMinY(for: .agents, next: .terminals),
+            0,
+            accuracy: 2,
+            "agents should own the pin slot after spaces fully left"
+        )
+        let agentsNatural = try XCTUnwrap(frames.naturalFrames[.agents]?.minY)
+        XCTAssertLessThanOrEqual(
+            agentsNatural,
+            2,
+            "agents header should be at/above the pin slot once spaces list has left"
+        )
+    }
+
+    @MainActor
+    func testSpacesStaysPinnedWhileItsListStillInViewport() throws {
+        let frames = StickyProbeFrameStore()
+        let host = StickyProbeHost(frames: frames, rowCountPerSection: 40, terminalsVisible: true)
+        let window = try host.makeWindow()
+        defer { window.close() }
+
+        let scrollView = try host.scrollView(in: window)
+        let spacesBody = CGFloat(host.rowCountPerSection) * 32
+        // Still inside Spaces — next header has not reached the top yet.
+        let stillInSpaces =
+            SidebarStickyLayout.headerHeight
+            + spacesBody
+            + SidebarStickyLayout.interSectionGap
+            - 60
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: stillInSpaces))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        host.pump()
+
+        XCTAssertEqual(
+            frames.pinnedMinY(for: .spaces, next: .agents),
+            0,
+            accuracy: 2,
+            "spaces must stay pinned until its list fully leaves"
+        )
+        XCTAssertGreaterThan(
+            frames.naturalFrames[.agents]?.minY ?? -1,
+            0,
+            "agents header should still be below the pin slot"
         )
     }
 }
-
 @MainActor
 private struct StickyProbeHost {
     let frames: StickyProbeFrameStore

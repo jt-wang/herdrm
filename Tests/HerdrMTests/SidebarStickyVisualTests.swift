@@ -3,7 +3,6 @@ import SwiftUI
 import XCTest
 @testable import herdrm
 
-/// Visual/geometry: pinned header global frame stays put across a mid-section scroll.
 final class SidebarStickyVisualTests: XCTestCase {
     @MainActor
     func testPinnedHeaderBandStableAcrossScroll() throws {
@@ -29,20 +28,17 @@ final class SidebarStickyVisualTests: XCTestCase {
         pump()
         defer { window.close() }
 
-        let id = SidebarSectionID.spaces.accessibilityIdentifier
-        let before = try XCTUnwrap(frames.frames[id])
-
+        let before = frames.pinnedMinY(for: .spaces, next: .agents)
         guard let scroll = findScroll(in: root) else {
             return XCTFail("expected NSScrollView")
         }
         scroll.contentView.scroll(to: NSPoint(x: 0, y: 220))
         scroll.reflectScrolledClipView(scroll.contentView)
         pump()
+        let after = frames.pinnedMinY(for: .spaces, next: .agents)
 
-        let after = try XCTUnwrap(frames.frames[id])
-        XCTAssertEqual(before.minY, after.minY, accuracy: 3.0, "pinned header global Y must not drift")
-        XCTAssertEqual(before.height, after.height, accuracy: 0.5)
-        XCTAssertEqual(before.width, after.width, accuracy: 1.0)
+        XCTAssertEqual(before, 0, accuracy: 2)
+        XCTAssertEqual(after, before, accuracy: 2, "pinned header Y must not drift mid-section")
     }
 }
 

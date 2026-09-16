@@ -9,8 +9,8 @@ the Sparkle update description — a release without a section here fails CI.
 
 ### Added
 - Sidebar Spaces / Agents / Terminals section headers stick under the top
-  actions while you scroll that list; the next section’s header replaces the
-  previous.
+  actions while you scroll that list; the next section’s header pushes the
+  previous out when the list has left the viewport (continuous sticky push).
 - `make uiux-test` covers sidebar sticky headers (unit, contract, integration,
   visual band probe, and e2e accessibility surface) via HerdrMTests.
 

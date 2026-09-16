@@ -21,11 +21,13 @@ enum SidebarSectionID: String, CaseIterable, Sendable {
 enum SidebarStickyLayout {
     /// Matches the existing group header row height.
     static let headerHeight: CGFloat = 28
-    /// Gap between sections; scrolls away so the next sticky header sits flush.
+    /// Gap after a section’s body; kept inside the body so the next header can
+    /// push the current one out without a between-section hitch.
     static let interSectionGap: CGFloat = 10
-    /// Production and probe stacks must pin the same views.
-    static let pinnedViews: PinnedScrollableViews = [.sectionHeaders]
+    /// Flow-sticky push (next header displaces the current one continuously).
     static let pinsSectionHeaders = true
+    static let usesContinuousPushSticky = true
+    static let usesSectionBoundarySticky = false
 
     static func visibleSections(terminalsVisible: Bool) -> [SidebarSectionID] {
         if terminalsVisible {
@@ -50,7 +52,7 @@ enum SidebarStickyLayout {
             let gap = id == sections.last ? 0 : interSectionGap
             let span = headerHeight + body + gap
             let nextFrontier = frontier + span
-            // This header owns the pin until the next section's header reaches the top.
+            // This header owns the pin until the next section’s header reaches the top.
             if scrollOffsetY < nextFrontier {
                 return id
             }
