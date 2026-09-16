@@ -5,6 +5,13 @@ on [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 Release automation extracts the matching section for GitHub release notes and
 the Sparkle update description — a release without a section here fails CI.
 
+## [Unreleased]
+
+### Added
+- Sidebar Spaces / Agents / Terminals section headers stick under the top
+  actions while you scroll that list; the next section’s header replaces the
+  previous.
+
 ## [0.6.5] - 2026-09-13
 
 ### Added
