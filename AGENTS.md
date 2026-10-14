@@ -68,6 +68,17 @@ release notes and the Sparkle update description, and fails if it's missing —
 add the section before tagging. The cask in OwO-Network/homebrew-brew is
 auto-bumped after each release.
 
+## Reviewing contributions
+
+Read these paths line by line in any PR; `.github/CODEOWNERS` routes them to the owner.
+- `.github/workflows/`: `release.yml` holds the Developer ID certificate, the notary
+  password and the Sparkle key. A leaked Sparkle key can push an update to every install.
+- `Packages/HerdrSSH/Artifacts/`: prebuilt binaries. `SHA256SUMS` sits beside them, so a
+  PR can change both; `verify-native.sh` (run by CI) checks slices, targets and the
+  OpenSSL signature, but only a rebuild from `Sources.lock` proves where a binary came from.
+- `project.yml`, `Package.swift`, `Makefile`: new dependencies, build scripts, or signing changes.
+- Third-party Actions and downloads in workflows are pinned by commit SHA or checksum; keep them pinned.
+
 ## herdr protocol notes (0.9.0, private protocol 22; verified against the live socket)
 
 - Requests are NDJSON `{"id","method","params"}` on `~/.config/herdr/herdr.sock`;
