@@ -48,6 +48,11 @@ xcodebuild needs `-skipPackagePluginValidation`; the Makefile passes it. Buildin
 against Xcode 27 needs the Metal toolchain component (libghostty compiles a Metal
 shader): `xcodebuild -downloadComponent MetalToolchain` once.
 
+## Contributing
+
+What every PR needs (tests first, all green, CHANGELOG, fake-data demos,
+owner review for sensitive paths): [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Accessibility
 
 UI changes follow [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md): every control
